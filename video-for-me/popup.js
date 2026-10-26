@@ -114,6 +114,7 @@ if (/^https?:/.test(tab.url || "")) {
   } catch (e) { console.warn(e); }
 }
 pageUrl = tab.url || "";
+try { await chrome.runtime.sendMessage({ type: "scan", tabId: tab.id }); } catch {}
 const key = "tab_" + tab.id;
 const data = await chrome.storage.session.get(key);
 const items = (data[key] || []).slice().reverse();
