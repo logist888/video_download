@@ -66,3 +66,26 @@ chrome.webRequest.onBeforeRequest.addListener(
   { urls: ["<all_urls>"], types: ["main_frame"] }
 );
 chrome.tabs.onRemoved.addListener((tabId) => queue(() => chrome.storage.session.remove("tab_" + tabId)));
+
+// Результаты анализа HTML и запрос на сканирование из окна расширения.
+chrome.runtime.onMessage.addListener((msg, sender, respond) => {
+  if (msg?.type === "found" && sender.tab) {
+    (async () => {
+      let title = "";
+      try { title = (await chrome.tabs.get(sender.tab.id)).title || ""; } catch {}
+      for (const it of msg.items || []) {
+        addItem(sender.tab.id, { url: it.url, type: it.type, size: 0, title, time: Date.now(), source: "html" });
+      }
+    })();
+    return false;
+  }
+  if (msg?.type === "scan") {
+    chrome.scripting
+      .executeScript({ target: { tabId: msg.tabId, allFrames: true }, files: ["scan.js"] })
+      .catch(() => {}) // служебные страницы chrome:// недоступны
+      .then(() => new Promise((r) => setTimeout(r, 300)))
+      .then(() => chain)
+      .then(() => respond(true));
+    return true;
+  }
+});
