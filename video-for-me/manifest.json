@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "video for me",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Находит видео и аудио на странице (MP4, WebM, HLS) и скачивает их без ограничений.",
   "permissions": ["webRequest", "storage", "tabs", "activeTab"],
   "host_permissions": ["<all_urls>"],

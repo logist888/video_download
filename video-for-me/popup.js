@@ -1,10 +1,11 @@
 import { fetchText, parsePlaylist, fmtTime, fmtSize } from "./hls.js";
+import { parseMpd, repLabel } from "./dash.js";
 
 const listEl = document.getElementById("list");
 const emptyEl = document.getElementById("empty");
 
-function openDownloader(url, type, name) {
-  const q = new URLSearchParams({ u: url, t: type, n: name });
+function openDownloader(url, type, name, extra = {}) {
+  const q = new URLSearchParams({ u: url, t: type, n: name, ...extra });
   chrome.tabs.create({ url: chrome.runtime.getURL("downloader.html?" + q) });
 }
 
@@ -27,8 +28,38 @@ async function render(item) {
   listEl.appendChild(card);
 
   if (item.type === "dash") {
-    meta.textContent = "DASH (.mpd) не поддерживается";
-    sel.hidden = btn.hidden = true;
+    try {
+      const m = parseMpd(await fetchText(item.url), item.url);
+      if (m.live) throw new Error("прямые трансляции не поддерживаются");
+      if (!m.video.length && !m.audio.length)
+        throw new Error(m.drm ? "DRM, скачать нельзя" : "дорожки не найдены");
+      meta.textContent = (m.duration ? fmtTime(m.duration) : "") + (m.drm ? " · часть дорожек с DRM пропущена" : "");
+      const fill = (select, reps, none) => {
+        if (none) select.add(new Option(none, ""));
+        reps.forEach((r) => select.add(new Option(repLabel(r), r.key)));
+        if (!reps.length && !none) select.hidden = true;
+      };
+      fill(sel, m.video, null);
+      if (!m.video.length) sel.hidden = true;
+      const asel = document.createElement("select");
+      fill(asel, m.audio, m.video.length ? "— без аудио —" : null);
+      if (!m.audio.length) asel.hidden = true;
+      if (m.audio.length && m.video.length) asel.value = m.audio[0].key;
+      const brow = btn.parentElement;
+      for (const x of [sel, asel]) {
+        const r = document.createElement("div");
+        r.className = "row";
+        r.style.marginBottom = "6px";
+        r.append(x);
+        card.insertBefore(r, brow);
+      }
+      btn.style.flex = "1";
+      btn.onclick = () =>
+        openDownloader(item.url, "dash", name, { v: m.video.length ? sel.value : "", a: asel.hidden ? "" : asel.value });
+    } catch (e) {
+      meta.textContent = "Ошибка: " + e.message;
+      sel.hidden = btn.hidden = true;
+    }
     return;
   }
   if (item.type === "file") {
