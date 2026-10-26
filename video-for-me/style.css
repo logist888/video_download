@@ -1,13 +1,14 @@
 * { box-sizing: border-box; }
 body { margin: 0; font: 13px -apple-system, Segoe UI, Roboto, sans-serif; background: #f2f2f2; color: #222; }
-body.popup { width: 300px; min-height: 80px; padding: 8px; }
+body.popup { width: max-content; min-width: 320px; max-width: 560px; min-height: 80px; padding: 8px; }
 .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 8px; margin-bottom: 8px; }
 .row { display: flex; align-items: center; gap: 6px; }
 .badge { font-size: 10px; border: 1px solid #3b82c4; color: #3b82c4; border-radius: 3px; padding: 0 4px; background: #eaf3fb; }
-.title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta { color: #777; font-size: 11px; margin: 4px 0 6px; }
 select, button { font: inherit; border-radius: 6px; border: 1px solid #ccc; padding: 4px 6px; background: #fafafa; }
-select { flex: 1; min-width: 0; }
+select { flex: 1; min-width: 0; max-width: 100%; }
+.card { min-width: 300px; }
 button.primary { background: #2f7fd0; border-color: #2f7fd0; color: #fff; cursor: pointer; }
 button.danger { background: #d33a2c; border-color: #d33a2c; color: #fff; cursor: pointer; }
 #empty { color: #777; padding: 12px 4px; text-align: center; }
