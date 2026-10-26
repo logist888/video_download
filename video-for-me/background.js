@@ -21,7 +21,15 @@ function totalSize(d) {
   return Number(header(d, "content-length")) || 0;
 }
 
-async function addItem(tabId, item) {
+// Все операции с хранилищем идут строго по очереди: иначе параллельные запросы затирают друг друга.
+let chain = Promise.resolve();
+const queue = (fn) => (chain = chain.then(fn).catch((e) => console.error(e)));
+
+function addItem(tabId, item) {
+  return queue(() => addItemNow(tabId, item));
+}
+
+async function addItemNow(tabId, item) {
   const key = "tab_" + tabId;
   const data = await chrome.storage.session.get(key);
   const list = data[key] || [];
@@ -46,11 +54,15 @@ chrome.webRequest.onResponseStarted.addListener(
   ["responseHeaders"]
 );
 
-// Сброс списка при переходе на другую страницу
-chrome.tabs.onUpdated.addListener((tabId, info) => {
-  if (info.status === "loading" && info.url) {
-    chrome.storage.session.remove("tab_" + tabId);
-    chrome.action.setBadgeText({ tabId, text: "" });
-  }
-});
-chrome.tabs.onRemoved.addListener((tabId) => chrome.storage.session.remove("tab_" + tabId));
+// Сброс списка только при настоящей загрузке новой страницы (не при смене адреса внутри страницы).
+chrome.webRequest.onBeforeRequest.addListener(
+  (d) => {
+    if (d.tabId < 0) return;
+    queue(async () => {
+      await chrome.storage.session.remove("tab_" + d.tabId);
+      chrome.action.setBadgeText({ tabId: d.tabId, text: "" }).catch(() => {});
+    });
+  },
+  { urls: ["<all_urls>"], types: ["main_frame"] }
+);
+chrome.tabs.onRemoved.addListener((tabId) => queue(() => chrome.storage.session.remove("tab_" + tabId)));

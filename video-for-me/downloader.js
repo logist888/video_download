@@ -5,6 +5,26 @@ const p = new URLSearchParams(location.search);
 const url = p.get("u"), type = p.get("t"), baseName = p.get("n") || "video";
 document.getElementById("name").textContent = baseName;
 
+// Многие CDN отдают 403 без Referer/Origin страницы-источника: подставляем их для запросов этой вкладки.
+const pageUrl = p.get("r");
+if (pageUrl && /^https?:/.test(pageUrl)) {
+  try {
+    const tab = await chrome.tabs.getCurrent();
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: [tab.id],
+      addRules: [{
+        id: tab.id,
+        priority: 2,
+        action: { type: "modifyHeaders", requestHeaders: [
+          { header: "referer", operation: "set", value: pageUrl },
+          { header: "origin", operation: "set", value: new URL(pageUrl).origin },
+        ] },
+        condition: { tabIds: [tab.id], resourceTypes: ["xmlhttprequest", "other"] },
+      }],
+    });
+  } catch (e) { console.warn("Не удалось подставить Referer:", e); }
+}
+
 // Одна строка интерфейса на одну скачиваемую дорожку. У каждой своя кнопка:
 // окно выбора файла требует отдельного клика пользователя.
 function addRow(label, run) {
