@@ -1,11 +1,12 @@
 import { fetchText, parsePlaylist, fmtTime, fmtSize } from "./hls.js";
 import { parseMpd, repLabel } from "./dash.js";
 
+let pageUrl = "";
 const listEl = document.getElementById("list");
 const emptyEl = document.getElementById("empty");
 
 function openDownloader(url, type, name, extra = {}) {
-  const q = new URLSearchParams({ u: url, t: type, n: name, ...extra });
+  const q = new URLSearchParams({ u: url, t: type, n: name, r: pageUrl, ...extra });
   chrome.tabs.create({ url: chrome.runtime.getURL("downloader.html?" + q) });
 }
 
@@ -96,6 +97,23 @@ async function render(item) {
 }
 
 const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+// Плейлисты тоже могут требовать Referer страницы-источника.
+if (/^https?:/.test(tab.url || "")) {
+  try {
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: [1],
+      addRules: [{
+        id: 1, priority: 1,
+        action: { type: "modifyHeaders", requestHeaders: [
+          { header: "referer", operation: "set", value: tab.url },
+          { header: "origin", operation: "set", value: new URL(tab.url).origin },
+        ] },
+        condition: { initiatorDomains: [chrome.runtime.id], resourceTypes: ["xmlhttprequest"] },
+      }],
+    });
+  } catch (e) { console.warn(e); }
+}
+pageUrl = tab.url || "";
 const key = "tab_" + tab.id;
 const data = await chrome.storage.session.get(key);
 const items = (data[key] || []).slice().reverse();
